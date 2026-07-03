@@ -6,17 +6,18 @@ GLOBAL_CMDS  := $(HOME)/.claude/commands/corner
 TEST_SERVE   := $(PLUGIN_ROOT)/tests/.serve
 TEST_PORT    := 8743
 
-.PHONY: help install uninstall test test-hook status
+.PHONY: help install uninstall test test-hook test-pipeline status
 
 help:
 	@echo ""
 	@echo "claude-corner — comandos disponíveis:"
 	@echo ""
-	@echo "  make install    disponibiliza o plugin (comandos globais + hook executável)"
-	@echo "  make uninstall  remove tudo que o install criou"
-	@echo "  make test       abre o viewer com fixtures de teste no browser"
-	@echo "  make test-hook  testa o hook e dispara uma sessão curta"
-	@echo "  make status     mostra o estado atual da instalação"
+	@echo "  make install       disponibiliza o plugin (comandos globais + hook executável)"
+	@echo "  make uninstall     remove tudo que o install criou"
+	@echo "  make test          abre o viewer com fixtures de teste no browser"
+	@echo "  make test-hook     testa o hook e dispara uma sessão curta (usa ~/.claude real)"
+	@echo "  make test-pipeline testa o pipeline completo isolado em /tmp (setup→now→uninstall)"
+	@echo "  make status        mostra o estado atual da instalação"
 	@echo ""
 	@echo "  Após 'make install', abra o Claude Code e rode /corner:setup para ativar."
 	@echo ""
@@ -114,6 +115,9 @@ test-hook:
 		2>/dev/null \
 		&& echo "  ✓ Sessão ok — verifique ~/claude-corner/" \
 		|| echo "  ⚠️  Sessão encerrou (pode ser normal se timeout)"
+
+test-pipeline:
+	@timeout 120 bash tests/test-pipeline.sh
 
 # ─── status ───────────────────────────────────────────────────────────────────
 

@@ -34,7 +34,10 @@ if [ -z "${BROWSER_OPEN_CMD:-}" ] || ! command -v "$BROWSER_OPEN_CMD" >/dev/null
 fi
 
 OPENED=no
-if [ -n "${BROWSER_OPEN_CMD:-}" ] && "$BROWSER_OPEN_CMD" "$URL" 2>/dev/null; then
+# timeout guards against xdg-open hanging indefinitely on a headless/no-display
+# system (no D-Bus session, no browser to hand off to) — never let opening the
+# browser block the caller.
+if [ -n "${BROWSER_OPEN_CMD:-}" ] && timeout 5 "$BROWSER_OPEN_CMD" "$URL" >/dev/null 2>&1; then
     OPENED=yes
 fi
 

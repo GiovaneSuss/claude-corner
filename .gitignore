@@ -1,1 +1,3 @@
 tests/.serve/
+__pycache__/
+*.pyc
