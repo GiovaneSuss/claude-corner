@@ -20,6 +20,24 @@
       <div id="entry-count">Loading…</div>
     </div>
 
+    <div id="sidebar-filters">
+      <div class="filter-group-toggle" id="group-toggle" role="tablist">
+        <button class="group-toggle-btn active" data-group="category" type="button" role="tab" aria-selected="true">By category</button>
+        <button class="group-toggle-btn" data-group="day" type="button" role="tab" aria-selected="false">By day</button>
+      </div>
+      <div class="filter-selects">
+        <select id="filter-period" class="filter-select" aria-label="Filter by time period">
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+        </select>
+        <select id="filter-type" class="filter-select" aria-label="Filter by category">
+          <option value="all">All types</option>
+        </select>
+      </div>
+    </div>
+
     <div id="sidebar-entries"></div>
 
     <div id="sidebar-footer">

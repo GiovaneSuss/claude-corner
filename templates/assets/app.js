@@ -51,6 +51,10 @@ let splitMode   = false;
 let panelAFile  = null;
 let panelBFile  = null;
 
+let filterPeriod = 'all';      // 'all' | 'today' | '7d' | '30d'
+let filterType   = 'all';      // 'all' | a TYPES key
+let groupMode    = 'category'; // 'category' | 'day'
+
 const panels = {
   a: { frame: null, rendered: null },
   b: { frame: null, rendered: null },
@@ -75,8 +79,74 @@ function init() {
   initInfoBar();
   initResize();
   initSandboxToggle();
+  initFilters();
   loadManifest();
   setInterval(loadManifest, 30000);
+}
+
+// ── Sidebar filters ────────────────────────────────
+
+function initFilters() {
+  document.getElementById('filter-period').addEventListener('change', e => {
+    filterPeriod = e.target.value;
+    renderSidebar();
+  });
+
+  document.getElementById('filter-type').addEventListener('change', e => {
+    filterType = e.target.value;
+    renderSidebar();
+  });
+
+  document.getElementById('group-toggle').addEventListener('click', e => {
+    const btn = e.target.closest('.group-toggle-btn');
+    if (!btn) return;
+    groupMode = btn.dataset.group;
+    document.querySelectorAll('.group-toggle-btn').forEach(b => {
+      const active = b === btn;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', String(active));
+    });
+    renderSidebar();
+  });
+}
+
+function populateTypeFilterOptions() {
+  const select  = document.getElementById('filter-type');
+  const present = new Set(entries.map(e =>
+    TYPES[(e.type || '').toLowerCase()] ? (e.type || 'other').toLowerCase() : 'other'
+  ));
+  const opts = ['all', ...Object.keys(TYPES).filter(t => present.has(t))];
+
+  select.innerHTML = opts
+    .map(t => `<option value="${t}">${t === 'all' ? 'All types' : x(TYPES[t])}</option>`)
+    .join('');
+
+  filterType = opts.includes(filterType) ? filterType : 'all';
+  select.value = filterType;
+}
+
+function matchesPeriod(dateStr, period) {
+  if (period === 'all') return true;
+  if (!dateStr) return false;
+  const day      = new Date(dateStr + 'T00:00:00');
+  const now      = new Date();
+  const today    = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((today - day) / 86400000);
+  if (period === 'today') return diffDays === 0;
+  if (period === '7d')    return diffDays >= 0 && diffDays <= 6;
+  if (period === '30d')   return diffDays >= 0 && diffDays <= 29;
+  return true;
+}
+
+function dayLabel(dateStr) {
+  if (!dateStr) return 'Unknown date';
+  const day      = new Date(dateStr + 'T00:00:00');
+  const now      = new Date();
+  const today    = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((today - day) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return fmt(dateStr);
 }
 
 // ── Sandbox toggle ─────────────────────────────────
@@ -167,32 +237,63 @@ function renderSidebar() {
   const list  = document.getElementById('sidebar-entries');
   const count = document.getElementById('entry-count');
 
+  populateTypeFilterOptions();
+
   if (!entries.length) {
     count.textContent = 'No creations yet';
     list.innerHTML = '<div class="no-entries">Corner sessions will appear here as Claude creates things.</div>';
     return;
   }
 
-  count.textContent = entries.length === 1 ? '1 creation' : `${entries.length} creations`;
-
-  const groups = {};
-  [...entries].reverse().forEach(e => {
-    const k = TYPES[(e.type || '').toLowerCase()] ? (e.type || 'other').toLowerCase() : 'other';
-    (groups[k] = groups[k] || []).push(e);
+  const filtered = entries.filter(e => {
+    const type = TYPES[(e.type || '').toLowerCase()] ? (e.type || 'other').toLowerCase() : 'other';
+    return matchesPeriod(e.date, filterPeriod) && (filterType === 'all' || type === filterType);
   });
 
+  count.textContent = filtered.length === entries.length
+    ? (entries.length === 1 ? '1 creation' : `${entries.length} creations`)
+    : `${filtered.length} of ${entries.length}`;
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="no-entries">No creations match this filter.</div>';
+    return;
+  }
+
+  const groups = {};
+  const order  = [];
+
+  if (groupMode === 'day') {
+    // `filtered` is already newest-first (manifest.json is kept sorted that
+    // way), so days come out in descending order without an extra sort.
+    for (const e of filtered) {
+      const k = e.date || 'unknown';
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(e);
+    }
+    order.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  } else {
+    [...filtered].reverse().forEach(e => {
+      const k = TYPES[(e.type || '').toLowerCase()] ? (e.type || 'other').toLowerCase() : 'other';
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(e);
+    });
+  }
+
   list.innerHTML = '';
-  for (const [type, items] of Object.entries(groups)) {
+  for (const groupKey of order) {
+    const items = groups[groupKey];
+    const label = groupMode === 'day' ? dayLabel(groupKey === 'unknown' ? null : groupKey) : (TYPES[groupKey] || 'Other');
+
     const section = document.createElement('div');
     section.className = 'category';
-    section.innerHTML = `<div class="category-label">${TYPES[type] || 'Other'}</div>`;
+    section.innerHTML = `<div class="category-label">${x(label)}</div>`;
 
     for (const e of items) {
-      const key = getKey(e);
-      const ext = getExt(e);
-      const el  = document.createElement('div');
-      el.className   = 'entry' + (activeEntry && getKey(activeEntry) === key ? ' active' : '');
-      el.dataset.key = key;
+      const eKey = getKey(e);
+      const ext  = getExt(e);
+      const el   = document.createElement('div');
+      el.className   = 'entry' + (activeEntry && getKey(activeEntry) === eKey ? ' active' : '');
+      el.dataset.key = eKey;
       el.innerHTML   = `
         <div class="entry-title">${x(e.title)}</div>
         <div class="entry-meta">
