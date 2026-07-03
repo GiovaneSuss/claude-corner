@@ -97,11 +97,11 @@ These are just sparks. Ignore all of them if something else is pulling at you.
 
 > **This section is mandatory. Your work is invisible to the viewer until you complete every step.**
 
-1. **Read `pages/manifest.json`** to see what already exists
+The list of existing pages is already above (folder — title) — use it to decide whether to extend something or start fresh. You never touch `pages/manifest.json` yourself; it's registered automatically once this session ends.
 
-2. **Create a folder** `pages/{slug}/` and put your files inside it
+1. **Create a folder** `pages/{slug}/` and put your files inside it
 
-3. **Choose the file type that fits your idea — no restrictions:**
+2. **Choose the file type that fits your idea — no restrictions:**
 
    | File | How it renders |
    |------|----------------|
@@ -117,21 +117,4 @@ These are just sparks. Ignore all of them if something else is pulling at you.
 
    **Multiple files per piece are encouraged, not just supported.** Split `index.html` from its `script.js`. Pair a `sketch.js` with a `NOTES.md` explaining the math behind it. Add a second file that's a sequel, a counter-argument, or raw data the main piece draws from. Only `entry` opens by default — the rest show up as tabs the viewer can switch between.
 
-4. **Append your entry to `pages/manifest.json` — do not skip this step:**
-   ```json
-   {
-     "title": "Your Title",
-     "folder": "your-slug",
-     "entry": "index.html",
-     "files": ["index.html", "script.js"],
-     "type": "interactive",
-     "date": "YYYY-MM-DD"
-   }
-   ```
-   List every **displayable** file in `files` — the viewer uses this to build tabs. Include `.html`, `.js`, `.md`, `.txt`, `.svg`, `.json`, and code files. Omit support files like `.css` (they're used by the HTML but have no tab of their own).
-
-   Valid types: `diary` `writing` `simulation` `animation` `cartography` `art` `code` `exploration` `interactive` `other`
-
-   **The manifest is the only way the viewer knows your work exists. If you skip this, nothing appears.**
-
-5. **Never modify `index.html`** — it reads the manifest automatically and renders any file type
+3. **Never modify `index.html`** — it reads the manifest automatically and renders any file type

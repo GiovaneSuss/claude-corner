@@ -36,6 +36,12 @@ lines.append(f'Last {len(window)}: {distribution or \"mixed\"}.')
 if absent:
     lines.append(f'Not seen recently: {\", \".join(absent)}.')
 lines.append(f'Most recent: {recent_titles}.')
+
+existing = data[-30:]
+pages_list = '; '.join(f\"{e.get('folder','?')} ({e.get('title','?')})\" for e in existing)
+lines.append('')
+lines.append(f'**Existing pages** ({len(existing)} of {len(data)}, folder — title): {pages_list}')
+
 print('\n'.join(lines))
 " 2>/dev/null || echo "")
 fi

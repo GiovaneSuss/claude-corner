@@ -3,11 +3,9 @@
 
 _SELF=$(realpath "$0")
 _DIR=$(dirname "$_SELF")
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-${_DIR}/..}"
-CORNER_DIR="$HOME/claude-corner"
-COUNTER_FILE="$HOME/.claude/.corner-count"
-LOCK_FILE="$HOME/.claude/.corner-lock"
-INTERVAL_FILE="$HOME/.claude/.corner-interval"
+# shellcheck source=/dev/null
+source "$_DIR/lib.sh"
+PLUGIN_ROOT=$(corner_resolve_plugin_root "$_DIR/..")
 
 INTERVAL=5
 if [ -f "$INTERVAL_FILE" ]; then
@@ -15,51 +13,31 @@ if [ -f "$INTERVAL_FILE" ]; then
     [[ "$_val" =~ ^[1-9][0-9]*$ ]] && INTERVAL=$_val
 fi
 
-SKIP_FILE="$HOME/.claude/.corner-skip"
 if [ -f "$SKIP_FILE" ]; then
     rm -f "$SKIP_FILE"
     exit 0
 fi
 
 COUNT=0
-[ -f "$COUNTER_FILE" ] && COUNT=$(cat "$COUNTER_FILE")
+[ -f "$COUNT_FILE" ] && COUNT=$(cat "$COUNT_FILE")
 COUNT=$((COUNT + 1))
-echo "$COUNT" > "$COUNTER_FILE"
+echo "$COUNT" > "$COUNT_FILE"
 
 [ $((COUNT % INTERVAL)) -ne 0 ] && exit 0
-if [ -f "$LOCK_FILE" ]; then
-    read -r LOCK_PID LOCK_TS < "$LOCK_FILE"
-    NOW=$(date +%s)
-    if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null && [ $(( NOW - ${LOCK_TS:-0} )) -lt 360 ]; then
-        exit 0
-    fi
-    rm -f "$LOCK_FILE"
-fi
+corner_lock_check_and_clear >/dev/null || exit 0
 
-mkdir -p "$CORNER_DIR"
-
-if [ ! -f "$CORNER_DIR/PROMPT.md" ]; then
-    cp "$PLUGIN_ROOT/templates/PROMPT.md" "$CORNER_DIR/PROMPT.md"
-fi
-if [ ! -f "$CORNER_DIR/index.html" ]; then
-    cp "$PLUGIN_ROOT/templates/index.html" "$CORNER_DIR/index.html" 2>/dev/null || true
-fi
-mkdir -p "$CORNER_DIR/pages"
-[ ! -f "$CORNER_DIR/pages/manifest.json" ] && echo "[]" > "$CORNER_DIR/pages/manifest.json"
-
-FULL_PROMPT=$(bash "$PLUGIN_ROOT/hooks/corner-prompt.sh" "$CORNER_DIR")
+corner_scaffold_minimal
 
 # --- Update check (cached 24h) ---
-VERSION_CACHE="$HOME/.claude/.corner-version-check"
 UPDATE_NOTICE=""
-CURRENT_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_ROOT/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
+CURRENT_VERSION=$(corner_plugin_version "$PLUGIN_ROOT/.claude-plugin/plugin.json")
 
 if [ -n "$CURRENT_VERSION" ]; then
     NOW=$(date +%s)
     LATEST_VERSION=""
     CACHE_AGE=999999
-    if [ -f "$VERSION_CACHE" ]; then
-        read -r CACHE_TS LATEST_VERSION < "$VERSION_CACHE"
+    if [ -f "$VERSION_CACHE_FILE" ]; then
+        read -r CACHE_TS LATEST_VERSION < "$VERSION_CACHE_FILE"
         CACHE_AGE=$((NOW - CACHE_TS))
     fi
     if [ "$CACHE_AGE" -gt 86400 ]; then
@@ -67,7 +45,7 @@ if [ -n "$CURRENT_VERSION" ]; then
             | python3 -c "import json,sys; print(json.load(sys.stdin)['metadata']['version'])" 2>/dev/null)
         if [ -n "$FETCHED" ]; then
             LATEST_VERSION="$FETCHED"
-            echo "$NOW $LATEST_VERSION" > "$VERSION_CACHE"
+            echo "$NOW $LATEST_VERSION" > "$VERSION_CACHE_FILE"
         fi
     fi
     if [ -n "$LATEST_VERSION" ] && [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
@@ -78,16 +56,7 @@ if [ -n "$CURRENT_VERSION" ]; then
     fi
 fi
 
-export _CORNER_PROMPT="$FULL_PROMPT"
-nohup bash -c "
-  cd \"$CORNER_DIR\"
-  timeout 300 claude --allowedTools 'Read,Write,Edit' --max-turns 15 -p \"\$_CORNER_PROMPT\"
-  rm -f \"$LOCK_FILE\"
-" >/dev/null 2>&1 &
-BG_PID=$!
-echo "$BG_PID $(date +%s)" > "$LOCK_FILE"
-disown $BG_PID
-unset _CORNER_PROMPT
+corner_launch_session
 
 MSG="Before finishing this response: briefly let the user know you are stepping away to your corner (~/claude-corner/) for a moment. Keep it natural and short, as if it were the last line of your response.${UPDATE_NOTICE}"
 printf '{"continue": true, "additionalContext": "%s"}' "$MSG"

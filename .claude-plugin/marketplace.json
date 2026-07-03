@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "claude-corner — gives Claude a hobby between conversations.",
-    "version": "1.4.0"
+    "version": "1.5.0"
   },
   "plugins": [
     {
@@ -16,7 +16,7 @@
         "url": "https://github.com/GiovaneSuss/claude-corner.git"
       },
       "description": "Gives Claude a hobby — 2-min free-time sessions every 5 prompts in ~/claude-corner/. Run /corner:setup.",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": {
         "name": "GiovaneSuss",
         "url": "https://github.com/GiovaneSuss"

@@ -10,109 +10,23 @@ allowed-tools: Bash
 
 Updates the plugin code and refreshes the viewer assets installed in `~/claude-corner/`, without touching the user's creations or `PROMPT.md`.
 
-## Step 1 — Record current version
+## Step 1 — Run the update
 
 ```bash
-echo "" > "$HOME/.claude/.corner-skip"
-
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
-CORNER_DIR="$HOME/claude-corner"
-
-OLD_PLUGIN_ROOT=$(ls -d "$HOME/.claude/plugins/cache/claude-corner/corner/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
-OLD_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_ROOT/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
-echo "versão atual: $OLD_VERSION"
-echo "plugin root atual: $OLD_PLUGIN_ROOT"
+bash "${CLAUDE_PLUGIN_ROOT}/.claude/commands/scripts/update.sh"
 ```
 
-## Step 2 — Update the plugin
+Este único script já roda `claude plugin update corner@claude-corner`, então a saída completa desse comando aparece aqui — você a vê inteira, nada fica escondido.
 
-```bash
-claude plugin update corner@claude-corner
-```
+Se a saída tiver `ERROR:` ou o comando sair com código diferente de 0, repasse a mensagem ao usuário e pare aqui. Caso contrário, a última linha é `OLD_VERSION=x NEW_VERSION=y`.
 
-## Step 2b — Remove old plugin version directory
-
-```bash
-NEW_PLUGIN_ROOT=$(ls -d "$HOME/.claude/plugins/cache/claude-corner/corner/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
-
-if [ -n "$OLD_PLUGIN_ROOT" ] && [ "$OLD_PLUGIN_ROOT" != "$NEW_PLUGIN_ROOT" ] && [ -d "$OLD_PLUGIN_ROOT" ]; then
-    rm -rf "$OLD_PLUGIN_ROOT"
-    echo "✓ Versão antiga removida: $OLD_PLUGIN_ROOT"
-else
-    echo "✓ Versão não mudou ou diretório antigo não encontrado"
-fi
-```
-
-## Step 3 — Update hook path in settings.json
-
-After the plugin update, the Stop hook path must point to the new version:
-
-```bash
-NEW_PLUGIN_ROOT=$(ls -d "$HOME/.claude/plugins/cache/claude-corner/corner/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
-NEW_HOOK="$NEW_PLUGIN_ROOT/hooks/corner-trigger.sh"
-SETTINGS="$HOME/.claude/settings.json"
-
-TMPPY=$(mktemp /tmp/corner-update-XXXXX.py)
-cat > "$TMPPY" << 'PYEOF'
-import json, sys
-settings, new_hook = sys.argv[1], sys.argv[2]
-d = json.load(open(settings))
-updated = False
-for entry in d.get("hooks", {}).get("Stop", []):
-    for h in entry.get("hooks", []):
-        if "corner-trigger.sh" in h.get("command", "") and h["command"] != new_hook:
-            h["command"] = new_hook
-            updated = True
-json.dump(d, open(settings, "w"), indent=2)
-print("hook atualizado para: " + new_hook if updated else "hook já estava atualizado")
-PYEOF
-python3 "$TMPPY" "$SETTINGS" "$NEW_HOOK"
-rm -f "$TMPPY"
-```
-
-## Step 4 — Refresh installed viewer assets
-
-Use the NEW plugin root (not CLAUDE_PLUGIN_ROOT, which still points to the old version):
-
-```bash
-NEW_PLUGIN_ROOT=$(ls -d "$HOME/.claude/plugins/cache/claude-corner/corner/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
-CORNER_DIR="$HOME/claude-corner"
-
-if [ -f "$CORNER_DIR/index.html" ]; then
-    cp "$CORNER_DIR/index.html" "$CORNER_DIR/index.html.bak"
-    echo "index.html anterior salvo em index.html.bak"
-fi
-cp "$NEW_PLUGIN_ROOT/templates/index.html" "$CORNER_DIR/index.html" 2>/dev/null || true
-
-mkdir -p "$CORNER_DIR/assets"
-cp "$NEW_PLUGIN_ROOT/templates/assets/style.css" "$CORNER_DIR/assets/style.css" 2>/dev/null || true
-cp "$NEW_PLUGIN_ROOT/templates/assets/app.js" "$CORNER_DIR/assets/app.js" 2>/dev/null || true
-echo "index.html e assets/ atualizados"
-
-cp "$NEW_PLUGIN_ROOT/templates/server.py" "$CORNER_DIR/server.py" 2>/dev/null || true
-cp "$NEW_PLUGIN_ROOT/templates/sandbox.py" "$CORNER_DIR/sandbox.py" 2>/dev/null || true
-chmod +x "$CORNER_DIR/server.py" "$CORNER_DIR/sandbox.py" 2>/dev/null || true
-echo "server.py e sandbox.py atualizados"
-
-echo "— PROMPT.md e pages/ não foram tocados"
-```
-
-## Step 5 — Refresh the version-check cache
-
-```bash
-NEW_PLUGIN_ROOT=$(ls -d "$HOME/.claude/plugins/cache/claude-corner/corner/"*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')
-NEW_VERSION=$(python3 -c "import json; print(json.load(open('$NEW_PLUGIN_ROOT/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
-echo "$(date +%s) $NEW_VERSION" > "$HOME/.claude/.corner-version-check"
-echo "versão nova: $NEW_VERSION"
-```
-
-## Step 6 — Show summary
+## Step 2 — Show summary
 
 ```
 🏠 Corner Update — Concluído!
 
-  Versão anterior: $OLD_VERSION
-  Versão nova:     $NEW_VERSION
+  Versão anterior: <OLD_VERSION>
+  Versão nova:     <NEW_VERSION>
   hook path:       atualizado
   index.html:      atualizado (backup em index.html.bak)
   assets/:         atualizados
@@ -123,4 +37,4 @@ echo "versão nova: $NEW_VERSION"
 
 Se um servidor antigo já estiver rodando na porta 8765 (iniciado antes deste update), ele continua sendo o `http.server` antigo até ser reiniciado — mencione ao usuário que basta rodar `/corner:view` depois de matar o processo antigo (`lsof -ti:8765 | xargs kill`) para o sandbox toggle aparecer funcional.
 
-Se `$OLD_VERSION` e `$NEW_VERSION` forem iguais, mencione que o plugin já estava na última versão.
+Se `OLD_VERSION` e `NEW_VERSION` forem iguais, mencione que o plugin já estava na última versão.

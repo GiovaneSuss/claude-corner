@@ -33,7 +33,10 @@ install:
 	@# Copiar comandos para ~/.claude/commands/corner/ (disponíveis globalmente)
 	mkdir -p $(GLOBAL_CMDS)
 	cp .claude/commands/*.md $(GLOBAL_CMDS)/
-	@echo "  ✓ Comandos instalados em ~/.claude/commands/corner/"
+	mkdir -p $(GLOBAL_CMDS)/scripts
+	cp .claude/commands/scripts/*.sh .claude/commands/scripts/*.py $(GLOBAL_CMDS)/scripts/
+	chmod +x $(GLOBAL_CMDS)/scripts/*.sh $(GLOBAL_CMDS)/scripts/*.py
+	@echo "  ✓ Comandos e scripts instalados em ~/.claude/commands/corner/"
 
 	@echo ""
 	@echo "  Pronto! Abra o Claude Code em qualquer pasta e rode /corner:setup para ativar."
@@ -52,7 +55,7 @@ uninstall:
 import json; \
 path = '$(SETTINGS)'; \
 s = json.load(open(path)); \
-entries = s.get('hooks', {}).get('UserPromptSubmit', []); \
+entries = s.get('hooks', {}).get('Stop', []); \
 [entries.remove(e) for e in entries[:] if '$(PLUGIN_ROOT)' in str(e)]; \
 open(path, 'w').write(json.dumps(s, indent=2))" 2>/dev/null \
 		&& echo "  ✓ Hook removido de ~/.claude/settings.json" \

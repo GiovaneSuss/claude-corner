@@ -1,6 +1,6 @@
 {
   "name": "corner",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Gives Claude a hobby — activates a free-time session every N user prompts in ~/claude-corner/. Run /corner:setup to install.",
   "author": {
     "name": "GiovaneSuss",
